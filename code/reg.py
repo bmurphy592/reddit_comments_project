@@ -10,9 +10,10 @@ from sklearn.linear_model import Ridge
 from sklearn.svm import SVR
 from sklearn import svm
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 
 conn = sqlite3.connect('../data/database.sqlite')
-data_size = 1000
+data_size = 50000
 
 # Calculates the entropy of a comment's body
 def calc_entropy(word_array):
@@ -64,7 +65,7 @@ def normalize(data):
 
 def load_data():
 
-	cursor = conn.execute("SELECT created_utc, gilded, author, body, controversiality, edited, score FROM May2015 WHERE subreddit = 'aww' LIMIT "+str(data_size));
+	cursor = conn.execute("SELECT created_utc, gilded, author, body, controversiality, score FROM May2015 WHERE subreddit = 'aww' LIMIT "+str(data_size));
 	data = cursor.fetchall()
 	random.shuffle(data)
 	samples = len(data)
@@ -88,8 +89,7 @@ def load_data():
 	data = np.array(data)
 	scores = data[:,-1]
 	data = data[:, :-1]
-	# Normalizing seemed to decrease accuracy, for now
-	# data = normalize(data)
+	data = normalize(data)
 	train = data[(samples/2):, :-1]
 	test = data[:(samples/2), :-1]
 	train_scores = scores[(samples/2):]
@@ -100,7 +100,7 @@ def load_data():
 
 def train(train_set, scores):
 	print 'Training model'
-	model = svm.LinearSVC().fit(train_set, scores)
+	model = svm.SVC(kernel='rbf').fit(train_set, scores)
 	print 'Finished training model'
 	return model
 
@@ -108,11 +108,15 @@ def test(model, test_set, scores):
 	print 'Computing generalization error'
 	return model.score(test_set, scores), model.predict(test_set)
 
-def plot(predictions, actual):
-	samples = range(0, len(predictions))
-	plt.plot(samples, predictions, 'ro')
-	plt.plot(samples, actual, 'bo')
-	plt.axis([0, samples[-1], -20, 20])
+def plot(predictions, actual, data):
+	gx1, gx2 = np.meshgrid(np.arange(0, 1, 0.01), np.arange(0, 1, 0.01))
+	labels = ['.r', '.g', '.b', '.y']
+	c_map = ListedColormap(['#FFAAAA', '#99FF99', '#AAAAFF', '#FFFF99'])
+	for i in range(len(actual)):
+		plt.plot(data[i][0], data[i][1], labels[np.int_(actual[i])], alpha=0.5)
+	pdb.set_trace()
+	predictions = predictions.reshape(gx1.shape)
+	plt.pcolormesh(gx1, gx2, predictions, cmap=c_map)
 	plt.show()
 
 if __name__=='__main__':
@@ -120,6 +124,7 @@ if __name__=='__main__':
 	train_set, test_set, train_scores, test_scores = load_data()
 	model = train(train_set, train_scores)
 	score, predictions = test(model, test_set, test_scores)
-	# plot(predictions, test_scores)
-	pdb.set_trace()
+	# plot(predictions, test_scores, test_set)
+	# pdb.set_trace()
+	print score
 
