@@ -5,6 +5,7 @@ import sqlite3
 import pdb
 import random
 import string
+import math
 from collections import defaultdict
 from sklearn.linear_model import Ridge
 from sklearn.svm import SVR
@@ -13,7 +14,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 
 conn = sqlite3.connect('../data/database.sqlite')
-data_size = 50000
+data_size = 100
 
 # Calculates the entropy of a comment's body
 def calc_entropy(word_array):
@@ -41,6 +42,16 @@ def get_num_comments(data):
 		num_comments[entry[2]] += 1
 	return num_comments
 
+def inverse_document_frequency(word, documents):
+	count = sum(1 for d in documents if word in d)
+	return math.log(len(documents) / count)
+
+def tf_idf(word, document, documents):
+	word_count = sum(1 for w in document if w == word)
+	tf = word_count / len(document)
+	idf = inverse_document_frequency(word, documents)
+	return tf * idf
+
 # Returns a class label from a comment's score:
 # 0 = score <-10
 # 1 = -10 <= score <= 0
@@ -63,14 +74,15 @@ def normalize(data):
 	data = data / maxes
 	return data
 
-def load_data():
-
-	cursor = conn.execute("SELECT created_utc, gilded, author, body, controversiality, score FROM May2015 WHERE subreddit = 'aww' LIMIT "+str(data_size));
+def load_data(subreddit):
+	cursor = conn.execute("SELECT created_utc, gilded, author, body, controversiality, score FROM May2015 WHERE subreddit = \'"+subreddit+"\' LIMIT "+str(data_size));
 	data = cursor.fetchall()
 	random.shuffle(data)
 	samples = len(data)
 
 	num_comments_dict = get_num_comments(data)
+
+	
 
 	for i in range(samples):
 		entry = data[i]
@@ -78,7 +90,6 @@ def load_data():
 		entropy = calc_entropy(body) if len(body) > 0 else 0
 		comment_length = len(body)
 		num_comments = num_comments_dict[entry[2]]
-
 		entry = list(entry)
 		del entry[2]
 		del entry[2]
@@ -97,6 +108,48 @@ def load_data():
 
 	print 'Created train and test sets'
 	return train, test, train_scores, test_scores
+
+def exploration():
+	cursor = conn.execute("SELECT body FROM May2015 WHERE subreddit = 'gaming' LIMIT "+str(data_size));
+	data = cursor.fetchall()
+	samples = len(data)
+	data = [convert_to_word_array(body[0]) for body in data]
+	idfs = {}
+	words = set()
+	for body in data:
+		for w in body:
+			if w not in words:
+				print 'Computing frequency of', w
+				idfs[w] = inverse_document_frequency(w, data)
+				words = words.union([w])
+	results = sorted(idfs.items(), key=lambda x: (-x[1], x[0]))
+	# 	results = defaultdict(int)
+	# 	for w in body:
+	# 		print "Calculating for", w
+	# 		results[w] = tf_idf(w, body, data)
+	# 		words = words.union([w])
+	# 	tf_idfs.append(results)
+	pdb.set_trace()
+
+# Parameters:
+# subreddit - the subreddit that is being trained/tested on
+# percentage - the top X percentage of words to be included
+# Output:
+# List of top percentage words with the highest idf
+def important_words(subreddit, percentage):
+	cursor = conn.execute("SELECT body FROM May2015 WHERE subreddit = \'"+subreddit+"\' LIMIT "+str(data_size));
+	data = cursor.fetchall()
+	samples = len(data)
+	data = [convert_to_word_array(body[0]) for body in data]
+	idfs = {}
+	for body in data:
+		for w in set(body) - set(idfs.keys()):
+			print 'Computing frequency of', w
+			idfs[w] = inverse_document_frequency(w, data)
+	results = sorted(idfs.items(), key=lambda x: (-x[1], x[0]))
+	best_words = [x[0] for x in results[:int(math.floor(len(results)*percentage))]]
+	return best_words
+
 
 def train(train_set, scores):
 	print 'Training model'
@@ -121,10 +174,11 @@ def plot(predictions, actual, data):
 
 if __name__=='__main__':
 	random.seed(1000)
-	train_set, test_set, train_scores, test_scores = load_data()
-	model = train(train_set, train_scores)
-	score, predictions = test(model, test_set, test_scores)
-	# plot(predictions, test_scores, test_set)
+	important_words('gaming', .75)
+	# train_set, test_set, train_scores, test_scores = load_data()
+	# model = train(train_set, train_scores)
+	# score, predictions = test(model, test_set, test_scores)
+	# # plot(predictions, test_scores, test_set)
 	# pdb.set_trace()
-	print score
+	# print score
 
