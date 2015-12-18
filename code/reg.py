@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Python script for predicting the scores of comments
 from __future__ import division
 import numpy as np 
@@ -82,10 +83,10 @@ def load_data(subreddit):
 
 	num_comments_dict = get_num_comments(data)
 
-	
-
 	for i in range(samples):
 		entry = data[i]
+    urls = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', entry[3])
+    has_url = 1 if len(urls) else 0
 		body = convert_to_word_array(entry[3])
 		entropy = calc_entropy(body) if len(body) > 0 else 0
 		comment_length = len(body)
@@ -93,7 +94,7 @@ def load_data(subreddit):
 		entry = list(entry)
 		del entry[2]
 		del entry[2]
-		entry = [entropy, comment_length, num_comments] + entry
+		entry = [entropy, comment_length, num_comments, has_url] + entry
 		entry[-1] = get_class_label(entry[-1])
 		data[i] = entry
 
