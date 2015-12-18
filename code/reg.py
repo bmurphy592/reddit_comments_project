@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Python script for predicting the scores of comments
 from __future__ import division
 import numpy as np 
